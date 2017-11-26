@@ -1,15 +1,18 @@
+from typing import Tuple, Union
+
 from . import collision, entity
 
 
 class Map:
     """
     Map which houses the current game information/metadata.
+
     :ivar my_id: Current player id associated with the map
     :ivar width: Map width
     :ivar height: Map height
     """
 
-    def __init__(self, my_id, width, height):
+    def __init__(self, my_id: int, width: int, height: int):
         """
         :param my_id: User's id (tag)
         :param width: Map width
@@ -21,118 +24,144 @@ class Map:
         self._players = {}
         self._planets = {}
 
-    def get_me(self):
+    def get_me(self) -> 'Player':
         """
-        :return: The user's player
-        :rtype: Player
+        Retrieve the bot's Player from all players in game.
+
+        :return: The player associated with the current user.
         """
         return self._players.get(self.my_id)
 
-    def get_player(self, player_id):
+    def get_player(self, player_id: int) -> 'Player':
         """
-        :param int player_id: The id of the desired player
+        Retrieve the Player with the given player_id.
+
+        :param player_id: The id of the desired player
         :return: The player associated with player_id
-        :rtype: Player
         """
         return self._players.get(player_id)
 
-    def all_players(self):
+    def all_players(self) -> ['Player']:
         """
+        Retrieve all the players in the game.
+
         :return: List of all players
-        :rtype: list[Player]
         """
         return list(self._players.values())
 
-    def get_planet(self, planet_id):
+    def get_planet(self, planet_id: int) -> entity.Planet:
         """
-        :param int planet_id:
+        Retrieve the Planet with the given planet_id.
+
         :return: The planet associated with planet_id
-        :rtype: entity.Planet
         """
         return self._planets.get(planet_id)
 
-    def all_planets(self):
+    def all_planets(self) -> [entity.Planet]:
         """
+        Retrieve all Planet entities in the game.
+
         :return: List of all planets
-        :rtype: list[entity.Planet]
         """
         return list(self._planets.values())
 
-    def nearby_entities_by_distance(self, entity):
+    def nearby_entities_by_distance(
+            self, source_entity: entity.Entity) -> dict:
         """
-        :param entity: The source entity to find distances from
+        Retrieve the distances of entities nearby the given entity.
+
+        :param source_entity: The source entity to find distances from
         :return: Dict containing all entities with their designated distances
-        :rtype: dict
         """
         result = {}
         for foreign_entity in self._all_ships() + self.all_planets():
-            if entity == foreign_entity:
+            if source_entity == foreign_entity:
                 continue
-            result.setdefault(entity.calculate_angle_between(foreign_entity), []).append(foreign_entity)
+
+            result.setdefault(source_entity.calculate_distance_between(
+                foreign_entity), []).append(foreign_entity)
+
         return result
 
-    def _link(self):
-        """
-        Updates all the entities with the correct ship and planet objects
-        :return:
-        """
+    def _link(self) -> None:
+        """Update all the entities with the correct ship and planet objects."""
         for celestial_object in self.all_planets() + self._all_ships():
             celestial_object._link(self._players, self._planets)
 
-    def _parse(self, map_string):
+    def _parse(self, map_string: str) -> None:
         """
         Parse the map description from the game.
+
         :param map_string: The string which the Halite engine outputs
-        :return: nothing
         """
         tokens = map_string.split()
 
         self._players, tokens = Player._parse(tokens)
         self._planets, tokens = entity.Planet._parse(tokens)
 
-        assert(len(tokens) == 0)  # There should be no remaining tokens at this point
+        assert len(tokens) == 0, 'Extra tokens were present after parsing.'
         self._link()
 
-    def _all_ships(self):
+    def _all_ships(self) -> [entity.Ship]:
         """
-        Helper function to extract all ships from all players
+        Helper function to extract all ships from all players.
+
         :return: List of ships
-        :rtype: List[Ship]
         """
         all_ships = []
         for player in self.all_players():
             all_ships.extend(player.all_ships())
+
         return all_ships
 
-    def _intersects_entity(self, target):
+    def _intersects_entity(
+            self, target: Union[entity.Ship, entity.Position]
+            ) -> Union[entity.Entity, None]:
         """
-        Check if the specified entity (x, y, r) intersects any planets. Entity is assumed to not be a planet.
-        :param entity.Entity target: The entity to check intersections with.
+        Check if the specified entity (x, y, r) intersects any planets.
+
+        Entity is assumed to not be a planet.
+
+        :param target: The entity to check intersections with.
         :return: The colliding entity if so, else None.
-        :rtype: entity.Entity
         """
         for celestial_object in self._all_ships() + self.all_planets():
             if celestial_object is target:
                 continue
+
             d = celestial_object.calculate_distance_between(target)
             if d <= celestial_object.radius + target.radius + 0.1:
                 return celestial_object
+
         return None
 
-    def obstacles_between(self, ship, target):
+    def obstacles_between(
+            self,
+            ship: entity.Ship,
+            target: entity.Entity,
+            ignore: Tuple(entity.Entity) = ()
+            ) -> [entity.Entity]:
         """
-        Check whether there is a straight-line path to the given point, without planetary obstacles in between.
-        :param entity.Ship ship: Source entity
-        :param entity.Entity target: Target entity
+        Determine the obstacles between the ship and the target.
+
+        :param ship: Source entity
+        :param target: Target entity
+        :param ignore: Which entity type to ignore
         :return: The list of obstacles between the ship and target
-        :rtype: list[entity.Entity]
         """
         obstacles = []
-        for foreign_entity in self.all_planets() + self._all_ships():
+        entities = (
+            [] if issubclass(entity.Planet, ignore) else self.all_planets() +
+            [] if issubclass(entity.Ship, ignore) else self._all_ships())
+
+        for foreign_entity in entities:
             if foreign_entity == ship or foreign_entity == target:
                 continue
-            if collision.intersect_segment_circle(ship, target, foreign_entity, fudge=ship.radius + 0.1):
+
+            if collision.intersect_segment_circle(
+                    ship, target, foreign_entity, fudge=ship.radius + 0.1):
                 obstacles.append(foreign_entity)
+
         return obstacles
 
 
@@ -140,36 +169,39 @@ class Player:
     """
     :ivar id: The player's unique id
     """
-    def __init__(self, player_id, ships={}):
+
+    def __init__(self, player_id: int, ships: dict = None):
         """
         :param player_id: User's id
         :param ships: Ships user controls (optional)
         """
         self.id = player_id
-        self._ships = ships
+        self._ships = ships or {}
 
-    def all_ships(self):
+    def all_ships(self) -> [entity.Ship]:
         """
-        :return: A list of all ships which belong to the user
-        :rtype: list[entity.Ship]
+        Retrieve all ships belonging to this Player.
+
+        :return: A list of all controlled ships
         """
         return list(self._ships.values())
 
-    def get_ship(self, ship_id):
+    def get_ship(self, ship_id: int) -> entity.Ship:
         """
-        :param int ship_id: The ship id of the desired ship.
+        Retrieve a Ship with the given ship_id under Player control.
+
+        :param ship_id: The ship id of the desired ship.
         :return: The ship designated by ship_id belonging to this user.
-        :rtype: entity.Ship
         """
         return self._ships.get(ship_id)
 
     @staticmethod
-    def _parse_single(tokens):
+    def _parse_single(tokens: [str]) -> Tuple[int, 'Player', [str]]:
         """
         Parse one user given an input string from the Halite engine.
-        :param list[str] tokens: The input string as a list of str from the Halite engine.
+
+        :param tokens: Halite engine split input.
         :return: The parsed player id, player object, and remaining tokens
-        :rtype: (int, Player, list[str])
         """
         player_id, *remainder = tokens
         player_id = int(player_id)
@@ -178,24 +210,26 @@ class Player:
         return player_id, player, remainder
 
     @staticmethod
-    def _parse(tokens):
+    def _parse(tokens: [str]) -> Tuple[dict, [str]]:
         """
         Parse an entire user input string from the Halite engine for all users.
-        :param list[str] tokens: The input string as a list of str from the Halite engine.
-        :return: The parsed players in the form of player dict, and remaining tokens
-        :rtype: (dict, list[str])
+
+        :param tokens: Halite engine split input.
+        :return: The parsed players in the form of player dict,
+            and remaining tokens
         """
         num_players, *remainder = tokens
         num_players = int(num_players)
         players = {}
 
         for _ in range(num_players):
-            player, players[player], remainder = Player._parse_single(remainder)
+            player, players[player], remainder = Player._parse_single(
+                remainder)
 
         return players, remainder
 
     def __str__(self):
-        return "Player {} with ships {}".format(self.id, self.all_ships())
+        return 'Player {} with ships {}'.format(self.id, self.all_ships())
 
     def __repr__(self):
         return self.__str__()

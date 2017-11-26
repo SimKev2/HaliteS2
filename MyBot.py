@@ -1,5 +1,9 @@
-import tsmlstarterbot
+"""Entrypoint for Halite bot to run a game."""
+import logging
 
-# Load the model from the models directory. Models directory is created during training.
-# Run "make" to download data and train.
-tsmlstarterbot.Bot(location="model_long_training.ckpt", name="MyBot").play()
+from .hlt.main import run
+
+logging.basicConfig()
+log = logging.getLogger('Simkev2Bot')
+log.debug('Entering game.')
+run()
