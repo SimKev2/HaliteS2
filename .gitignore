@@ -1,6 +1,7 @@
 # Halite Files
 *.hlt
 *.zip
+halite
 
 .idea/*
 

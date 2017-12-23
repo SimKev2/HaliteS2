@@ -1,6 +1,7 @@
 import sys
 import logging
 import copy
+from typing import List
 
 from . import game_map
 
@@ -35,7 +36,7 @@ class Game:
         return result
 
     @staticmethod
-    def send_command_queue(command_queue: [str]) -> None:
+    def send_command_queue(command_queue: List[str]) -> None:
         """
         Issue the given list of commands.
 
@@ -55,7 +56,9 @@ class Game:
         :param name: The bot name (used for naming the log)
         """
         log_file = '{}_{}.log'.format(tag, name)
-        log.addHandler(logging.FileHandler(filename=log_file, mode='w'))
+        fh = logging.FileHandler(filename=log_file, mode='w')
+        fh.setLevel(logging.DEBUG)
+        log.addHandler(fh)
         log.info('Initialized bot {}'.format(name))
 
     def __init__(self, name: str):

@@ -1,7 +1,7 @@
 import abc
 import math
 from enum import Enum
-from typing import Dict, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
 from . import constants
 
@@ -117,9 +117,12 @@ class Planet(Entity):
             docked_ships: [int]):
         super().__init__(
             x, y, radius, hp, owner if bool(int(owned)) else None, planet_id)
+        self.radius = radius
         self.current_production = current
         self.num_docking_spots = docking_spots
         self.remaining_resources = remaining
+
+        self.someone_docking = False
 
         self._docked_ship_ids = docked_ships
         self._docked_ships = {}
@@ -163,13 +166,14 @@ class Planet(Entity):
 
         :param players: A dictionary of player objects keyed by id.
         """
+        self.someone_docking = False
         if self.owner is not None:
             self.owner = players.get(self.owner)
             for ship in self._docked_ship_ids:
                 self._docked_ships[ship] = self.owner.get_ship(ship)
 
     @staticmethod
-    def _parse_single(tokens: [str]) -> Tuple[int, 'Planet', [str]]:
+    def _parse_single(tokens: List[str]) -> Tuple[int, 'Planet', List[str]]:
         """
         Parse a single planet given tokenized input from the game environment.
 
@@ -201,7 +205,7 @@ class Planet(Entity):
         return plid, planet, remainder
 
     @staticmethod
-    def _parse(tokens: [str]) -> Tuple[dict, [str]]:
+    def _parse(tokens: List[str]) -> Tuple[dict, List[str]]:
         """
         Parse planet data given a tokenized input.
 
@@ -294,8 +298,8 @@ class Ship(Entity):
             game_map: 'game_map.Map',
             speed: int,
             avoid_obstacles: bool = True,
-            max_corrections: int = 90,
-            angular_step: int = 1,
+            max_corrections: int = 18,
+            angular_step: int = 5,
             ignore_ships: bool = False,
             ignore_planets: bool = False
             ) -> Union[str, None]:
@@ -334,31 +338,35 @@ class Ship(Entity):
         if max_corrections <= 0:
             return None
 
+        if angular_step > 0 and self.id % 2 != 0:
+            angular_step *= -1
+
         distance = self.calculate_distance_between(target)
         angle = self.calculate_angle_between(target)
-        ignore = (
-            () if not (ignore_ships or ignore_planets)
-            else Ship if (ignore_ships and not ignore_planets)
-            else Planet if (ignore_planets and not ignore_ships)
-            else Entity)
 
-        if avoid_obstacles and game_map.obstacles_between(
-                self, target, ignore):
-            new_target_dx = math.cos(math.radians(
-                angle + angular_step)) * distance
-            new_target_dy = math.sin(math.radians(
-                angle + angular_step)) * distance
+        if avoid_obstacles:
+            obstacles = game_map.obstacles_between(
+                self,
+                target,
+                ignore_ships=ignore_ships,
+                ignore_planets=ignore_planets)
 
-            new_target = Position(
-                self.x + new_target_dx, self.y + new_target_dy)
+            if obstacles:
+                new_target_dx = math.cos(math.radians(
+                    angle + angular_step)) * distance
+                new_target_dy = math.sin(math.radians(
+                    angle + angular_step)) * distance
 
-            return self.navigate(
-                new_target,
-                game_map,
-                speed,
-                True,
-                max_corrections - 1,
-                angular_step)
+                new_target = Position(
+                    self.x + new_target_dx, self.y + new_target_dy)
+
+                return self.navigate(
+                    new_target,
+                    game_map,
+                    speed,
+                    True,
+                    max_corrections - 1,
+                    angular_step)
 
         speed = speed if (distance >= speed) else distance
         return self.thrust(speed, angle)
@@ -370,6 +378,12 @@ class Ship(Entity):
         :param planet: The planet wherein you wish to dock
         :return: True if can dock, False otherwise
         """
+        if planet.is_full() or planet.someone_docking:
+            return False
+
+        if planet.is_owned() and planet.owner.id != self.owner.id:
+            return False
+
         return (
             self.calculate_distance_between(planet)
             <= planet.radius + constants.DOCK_RADIUS + constants.SHIP_RADIUS)
@@ -390,7 +404,9 @@ class Ship(Entity):
 
     @staticmethod
     def _parse_single(
-            player_id: int, tokens: [str]) -> Tuple[int, 'Ship', [str]]:
+            player_id: int,
+            tokens: List[str]
+    ) -> Tuple[int, 'Ship', List[str]]:
         """
         Parse a single ship given tokenized input from the game environment.
 
@@ -415,7 +431,7 @@ class Ship(Entity):
         return sid, ship, remainder
 
     @staticmethod
-    def _parse(player_id: int, tokens: [str]) -> Tuple[dict, [str]]:
+    def _parse(player_id: int, tokens: List[str]) -> Tuple[dict, List[str]]:
         """
         Parse ship data given a tokenized input.
 

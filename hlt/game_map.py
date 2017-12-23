@@ -1,4 +1,4 @@
-from typing import Tuple, Union
+from typing import List, Tuple, Union
 
 from . import collision, entity
 
@@ -41,7 +41,7 @@ class Map:
         """
         return self._players.get(player_id)
 
-    def all_players(self) -> ['Player']:
+    def all_players(self) -> List['Player']:
         """
         Retrieve all the players in the game.
 
@@ -57,7 +57,7 @@ class Map:
         """
         return self._planets.get(planet_id)
 
-    def all_planets(self) -> [entity.Planet]:
+    def all_planets(self) -> List[entity.Planet]:
         """
         Retrieve all Planet entities in the game.
 
@@ -102,7 +102,7 @@ class Map:
         assert len(tokens) == 0, 'Extra tokens were present after parsing.'
         self._link()
 
-    def _all_ships(self) -> [entity.Ship]:
+    def _all_ships(self) -> List[entity.Ship]:
         """
         Helper function to extract all ships from all players.
 
@@ -139,27 +139,33 @@ class Map:
             self,
             ship: entity.Ship,
             target: entity.Entity,
-            ignore: Tuple(entity.Entity) = ()
-            ) -> [entity.Entity]:
+            ignore_ships: bool = False,
+            ignore_planets: bool = False,
+            ) -> List[entity.Entity]:
         """
         Determine the obstacles between the ship and the target.
 
         :param ship: Source entity
         :param target: Target entity
-        :param ignore: Which entity type to ignore
+        :param ignore_ships: Flag representing if ships should be ignored.
+        :param ignore_planets: Flag representing if planets should be ignored.
         :return: The list of obstacles between the ship and target
         """
         obstacles = []
-        entities = (
-            [] if issubclass(entity.Planet, ignore) else self.all_planets() +
-            [] if issubclass(entity.Ship, ignore) else self._all_ships())
+
+        entities = []
+        entities += self.all_planets() if not ignore_planets else []
+        entities += self._all_ships() if not ignore_ships else []
 
         for foreign_entity in entities:
             if foreign_entity == ship or foreign_entity == target:
                 continue
 
+            fudge = (2 * ship.radius if isinstance(
+                foreign_entity, entity.Ship) else ship.radius + 0.2)
+
             if collision.intersect_segment_circle(
-                    ship, target, foreign_entity, fudge=ship.radius + 0.1):
+                    ship, target, foreign_entity, fudge=fudge):
                 obstacles.append(foreign_entity)
 
         return obstacles
@@ -178,7 +184,7 @@ class Player:
         self.id = player_id
         self._ships = ships or {}
 
-    def all_ships(self) -> [entity.Ship]:
+    def all_ships(self) -> List[entity.Ship]:
         """
         Retrieve all ships belonging to this Player.
 
@@ -196,7 +202,7 @@ class Player:
         return self._ships.get(ship_id)
 
     @staticmethod
-    def _parse_single(tokens: [str]) -> Tuple[int, 'Player', [str]]:
+    def _parse_single(tokens: List[str]) -> Tuple[int, 'Player', List[str]]:
         """
         Parse one user given an input string from the Halite engine.
 
@@ -210,7 +216,7 @@ class Player:
         return player_id, player, remainder
 
     @staticmethod
-    def _parse(tokens: [str]) -> Tuple[dict, [str]]:
+    def _parse(tokens: List[str]) -> Tuple[dict, List[str]]:
         """
         Parse an entire user input string from the Halite engine for all users.
 

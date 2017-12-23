@@ -1,9 +1,9 @@
 """Entrypoint for Halite bot to run a game."""
 import logging
 
-from .hlt.main import run
+import hlt
 
 logging.basicConfig()
 log = logging.getLogger('Simkev2Bot')
 log.debug('Entering game.')
-run()
+hlt.main.run()

@@ -1,7 +1,7 @@
 """Entrypoint for hlt bot, hanldes game loop."""
 import logging
 
-from . import constants, networking
+from . import constants, entity, networking
 
 log = logging.getLogger(__name__)
 
@@ -14,27 +14,46 @@ def run() -> None:
 
     while True:
         game_map = game.update_map()
+        me = game_map.get_me()
         command_queue = []
 
         for ship in game_map.get_me().all_ships():
             if ship.docking_status != ship.DockingStatus.UNDOCKED:
                 continue
 
-            for planet in game_map.all_planets():
-                if planet.is_owned():
-                    continue
+            command = None
+            entities_by_distance = game_map.nearby_entities_by_distance(ship)
 
-                if ship.can_dock(planet):
-                    command_queue.append(ship.dock(planet))
-                else:
-                    navigate_command = ship.navigate(
-                        ship.closest_point_to(planet),
+            for dist in sorted(entities_by_distance):
+                for obj in sorted(
+                        entities_by_distance[dist],
+                        key=lambda o: o.radius,
+                        reverse=True):
+
+                    if isinstance(obj, entity.Planet):
+                        if ship.can_dock(obj):
+                            command = ship.dock(obj)
+                            break
+                        elif obj.is_full() and obj.owner == me:
+                            continue
+                        elif obj.is_owned() and obj.owner != me:
+                            continue
+
+                    elif isinstance(obj, entity.Ship):
+                        if me.get_ship(obj.id):
+                            continue
+
+                    command = ship.navigate(
+                        ship.closest_point_to(obj),
                         game_map,
-                        speed=int(constants.MAX_SPEED / 2),
-                        ignore_ships=True)
+                        speed=int(constants.MAX_SPEED))
 
-                    if navigate_command:
-                        command_queue.append(navigate_command)
-                break
+                    break
+
+                if command:
+                    break
+
+            if command:
+                command_queue.append(command)
 
         game.send_command_queue(command_queue)

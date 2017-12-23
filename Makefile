@@ -14,6 +14,8 @@ help:
 .PHONY: clean
 clean:
 	rm -f submission.zip
+	rm -f *.log
+	rm -f *.hlt
 
 
 .PHONY: deps
@@ -23,12 +25,17 @@ deps:
 
 .PHONY: package
 package:
-	zip -r submission.zip MyBot.py hlt/
+	zip -r submission.zip MyBot.py __init__.py hlt/
 
 
 .PHONY: release
 release:
-	python ./HaliteClient/hlt_client/client.py bot -b ./submission.zip
+	hlt bot -b ./submission.zip
+
+
+.PHONY: gym
+gym: package
+	hlt gym -r "python3 MyBot.py" -r "python3 MyBot.py" -b "./halite" -i 100 -H 240 -W 320
 
 
 .PHONY: test
