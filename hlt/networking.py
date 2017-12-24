@@ -1,3 +1,4 @@
+"""Communication with the halite engine."""
 import sys
 import logging
 import copy
@@ -47,35 +48,22 @@ class Game:
 
         Game._done_sending()
 
-    @staticmethod
-    def _set_up_logging(tag: int, name: str) -> None:
-        """
-        Set up and truncate the log.
-
-        :param tag: The user tag (used for naming the log)
-        :param name: The bot name (used for naming the log)
-        """
-        log_file = '{}_{}.log'.format(tag, name)
-        fh = logging.FileHandler(filename=log_file, mode='w')
-        fh.setLevel(logging.DEBUG)
-        log.addHandler(fh)
-        log.info('Initialized bot {}'.format(name))
-
     def __init__(self, name: str):
         """
         Initialize the bot with the given name.
 
         :param name: The name of the bot.
         """
+        self.turn_num = 0
         self._name = name
-        self._send_name = False
-        tag = int(self._get_string())
-        Game._set_up_logging(tag, name)
+
+        _id = int(self._get_string())
         width, height = [int(x) for x in self._get_string().strip().split()]
-        self.map = game_map.Map(tag, width, height)
+
+        self.map = game_map.Map(_id, width, height)
+
         self.update_map()
         self.initial_map = copy.deepcopy(self.map)
-        self._send_name = True
 
     def update_map(self) -> game_map.Map:
         """
@@ -83,11 +71,13 @@ class Game:
 
         :return: Newly parsed map
         """
-        if self._send_name:
-            self._send_string(self._name)
-            self._done_sending()
-            self._send_name = False
-
-        log.info('---NEW TURN---')
-        self.map._parse(self._get_string())
+        log.debug(f'---TURN {self.turn_num}---')
+        self.map.parse(self._get_string())
+        self.turn_num += 1
         return self.map
+
+    def begin_game(self) -> None:
+        """Begin the game by sending the bot name to the engine."""
+        self._send_string(self._name)
+        self._done_sending()
+        self.turn_num = 0

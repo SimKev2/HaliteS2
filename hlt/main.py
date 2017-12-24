@@ -12,6 +12,9 @@ def run() -> None:
     game = networking.Game('SimKev2')
     log.debug('Starting Game')
 
+    # After 60 seconds pre processing
+    game.begin_game()
+
     while True:
         game_map = game.update_map()
         me = game_map.get_me()
@@ -32,12 +35,23 @@ def run() -> None:
 
                     if isinstance(obj, entity.Planet):
                         if ship.can_dock(obj):
+                            obj.curr_docking.append(ship)
                             command = ship.dock(obj)
                             break
                         elif obj.is_full() and obj.owner == me:
                             continue
                         elif obj.is_owned() and obj.owner != me:
                             continue
+                        else:
+                            open_spots = obj.num_docking_spots - (
+                                len(obj.all_docked_ships()) +
+                                obj.enroute +
+                                len(obj.curr_docking))
+
+                            if not open_spots:
+                                continue
+
+                            obj.enroute += 1
 
                     elif isinstance(obj, entity.Ship):
                         if me.get_ship(obj.id):

@@ -1,3 +1,4 @@
+"""Game map interactions and information."""
 from typing import List, Tuple, Union
 
 from . import collision, entity
@@ -88,7 +89,7 @@ class Map:
         for celestial_object in self.all_planets() + self._all_ships():
             celestial_object._link(self._players, self._planets)
 
-    def _parse(self, map_string: str) -> None:
+    def parse(self, map_string: str) -> None:
         """
         Parse the map description from the game.
 
@@ -96,8 +97,8 @@ class Map:
         """
         tokens = map_string.split()
 
-        self._players, tokens = Player._parse(tokens)
-        self._planets, tokens = entity.Planet._parse(tokens)
+        self._players, tokens = Player.parse(tokens)
+        self._planets, tokens = entity.Planet.parse(tokens)
 
         assert len(tokens) == 0, 'Extra tokens were present after parsing.'
         self._link()
@@ -211,12 +212,12 @@ class Player:
         """
         player_id, *remainder = tokens
         player_id = int(player_id)
-        ships, remainder = entity.Ship._parse(player_id, remainder)
+        ships, remainder = entity.Ship.parse(player_id, remainder)
         player = Player(player_id, ships)
         return player_id, player, remainder
 
     @staticmethod
-    def _parse(tokens: List[str]) -> Tuple[dict, List[str]]:
+    def parse(tokens: List[str]) -> Tuple[dict, List[str]]:
         """
         Parse an entire user input string from the Halite engine for all users.
 

@@ -16,6 +16,7 @@ clean:
 	rm -f submission.zip
 	rm -f *.log
 	rm -f *.hlt
+	rm -f log_1.txt
 
 
 .PHONY: deps
@@ -35,7 +36,7 @@ release:
 
 .PHONY: gym
 gym: package
-	hlt gym -r "python3 MyBot.py" -r "python3 MyBot.py" -b "./halite" -i 100 -H 240 -W 320
+	hlt gym -r "python3 MyBot.py" -r "../haliteII/target/debug/MyBot" -b "./halite" -i 100 -H 240 -W 320
 
 
 .PHONY: test

@@ -95,9 +95,11 @@ class Planet(Entity):
     """
     A planet on the game map.
 
+    :ivar curr_docking: The list of ships currently docking on the planet.
     :ivar current_production: How much production the planet has generated at
         the moment. Once it reaches the threshold, a ship will spawn and this
         will be reset.
+    :ivar enroute: The number of ships heading to this planet.
     :ivar num_docking_spots: The max number of ships that can be docked.
     :ivar remaining_resources: The remaining production capacity of the planet.
     """
@@ -122,7 +124,8 @@ class Planet(Entity):
         self.num_docking_spots = docking_spots
         self.remaining_resources = remaining
 
-        self.someone_docking = False
+        self.curr_docking = []
+        self.enroute = 0
 
         self._docked_ship_ids = docked_ships
         self._docked_ships = {}
@@ -166,11 +169,14 @@ class Planet(Entity):
 
         :param players: A dictionary of player objects keyed by id.
         """
-        self.someone_docking = False
+        self.enroute = 0
         if self.owner is not None:
             self.owner = players.get(self.owner)
             for ship in self._docked_ship_ids:
                 self._docked_ships[ship] = self.owner.get_ship(ship)
+
+        self.curr_docking = [
+            s for s in self.curr_docking if not self._docked_ships.get(s)]
 
     @staticmethod
     def _parse_single(tokens: List[str]) -> Tuple[int, 'Planet', List[str]]:
@@ -205,7 +211,7 @@ class Planet(Entity):
         return plid, planet, remainder
 
     @staticmethod
-    def _parse(tokens: List[str]) -> Tuple[dict, List[str]]:
+    def parse(tokens: List[str]) -> Tuple[dict, List[str]]:
         """
         Parse planet data given a tokenized input.
 
@@ -378,7 +384,7 @@ class Ship(Entity):
         :param planet: The planet wherein you wish to dock
         :return: True if can dock, False otherwise
         """
-        if planet.is_full() or planet.someone_docking:
+        if planet.is_full():
             return False
 
         if planet.is_owned() and planet.owner.id != self.owner.id:
@@ -431,7 +437,7 @@ class Ship(Entity):
         return sid, ship, remainder
 
     @staticmethod
-    def _parse(player_id: int, tokens: List[str]) -> Tuple[dict, List[str]]:
+    def parse(player_id: int, tokens: List[str]) -> Tuple[dict, List[str]]:
         """
         Parse ship data given a tokenized input.
 
