@@ -1,5 +1,6 @@
 """Entrypoint for hlt bot, hanldes game loop."""
 import logging
+from datetime import datetime, timedelta
 
 from . import constants, entity, networking
 
@@ -16,6 +17,7 @@ def run() -> None:
     game.begin_game()
 
     while True:
+        turn_start = datetime.utcnow()
         game_map = game.update_map()
         me = game_map.get_me()
         command_queue = []
@@ -23,6 +25,10 @@ def run() -> None:
         for ship in game_map.get_me().all_ships():
             if ship.docking_status != ship.DockingStatus.UNDOCKED:
                 continue
+
+            if datetime.utcnow() - turn_start > timedelta(seconds=1.7):
+                log.warning('Near timeout sending commands.')
+                break
 
             command = None
             entities_by_distance = game_map.nearby_entities_by_distance(ship)
