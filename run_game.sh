@@ -1,3 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
-./halite -d "240 160" "python3 MyBot.py" "python3 MyBot.py"
+cargo rustc --release -q -- -Awarnings
+./halite -d "240 160" "target/release/MyBot" "target/release/MyBot"
